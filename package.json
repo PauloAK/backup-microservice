@@ -1,0 +1,37 @@
+{
+  "name": "backup-microservice",
+  "version": "1.0.0",
+  "description": "My Moleculer-based microservices project",
+  "scripts": {
+    "dev": "moleculer-runner --repl --hot services/**/*.service.js",
+    "start": "moleculer-runner",
+    "cli": "moleculer connect NATS",
+    "ci": "jest --watch",
+    "test": "jest --coverage"
+  },
+  "keywords": [
+    "microservices",
+    "moleculer"
+  ],
+  "author": "",
+  "devDependencies": {
+    "jest": "^26.4.2",
+    "jest-cli": "^26.4.2",
+    "moleculer-repl": "^0.6.4"
+  },
+  "dependencies": {
+    "nats": "^1.4.12",
+    "moleculer": "^0.14.10"
+  },
+  "engines": {
+    "node": ">= 10.x.x"
+  },
+  "jest": {
+    "coverageDirectory": "../coverage",
+    "testEnvironment": "node",
+    "rootDir": "./services",
+    "roots": [
+      "../test"
+    ]
+  }
+}
