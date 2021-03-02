@@ -3,10 +3,10 @@
     "apps": [
         {
             "name": "example-app",
-            "directory": [
+            "directories": [
                 "/var/www/example"
             ],
-            "database": [
+            "databases": [
                 {
                     "driver": "postgres",
                     "host": "127.0.0.1",

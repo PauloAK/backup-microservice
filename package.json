@@ -22,7 +22,8 @@
   "dependencies": {
     "dateformat": "^4.5.1",
     "moleculer": "^0.14.10",
-    "nats": "^1.4.12"
+    "nats": "^1.4.12",
+    "tar": "^6.1.0"
   },
   "engines": {
     "node": ">= 10.x.x"
