@@ -20,8 +20,9 @@
     "moleculer-repl": "^0.6.4"
   },
   "dependencies": {
-    "nats": "^1.4.12",
-    "moleculer": "^0.14.10"
+    "dateformat": "^4.5.1",
+    "moleculer": "^0.14.10",
+    "nats": "^1.4.12"
   },
   "engines": {
     "node": ">= 10.x.x"

@@ -1,0 +1,21 @@
+{
+    "backup_folder": "/home/backups",
+    "apps": [
+        {
+            "name": "example-app",
+            "directory": [
+                "/var/www/example"
+            ],
+            "database": [
+                {
+                    "driver": "postgres",
+                    "host": "127.0.0.1",
+                    "port": "5432",
+                    "username": "postgres",
+                    "password": "postgres",
+                    "database": "example"
+                }
+            ]
+        }
+    ]
+}
