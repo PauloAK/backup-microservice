@@ -3,20 +3,21 @@
 const fs = require("fs");
 const dateformat = require("dateformat");
 const tar = require("tar");
+const {execute} = require('@getvim/execute');
 
 module.exports = {
     name: "backup",
 
     actions: {
         async setupPath(ctx) {
-            let fileExtension = "tar.gz";
+            let fileExtension = ctx.params.extension ? ctx.params.extension : "tar.gz";
             let timeFormat = dateformat(new Date, "yyyymmdd-HHMMss");
 
-            let dir = /*ctx.params.backup_folder*/ '/tmp' + `/${ctx.params.app.name}`;
-            let path = `${dir}/${ctx.params.app.name}_${timeFormat}_${ctx.params.type}.${fileExtension}`;
+            let dir = ctx.params.config.backup_folder + `/${ctx.params.app.name}`;
+            let path = `${dir}/${ctx.params.app.name}_${timeFormat}_${ctx.params.name}.${fileExtension}`;
 
             if (!fs.existsSync(dir)){
-                fs.mkdirSync(dir);
+                fs.mkdirSync(dir, { recursive: true });
             }
 
             this.logger.info(`Path generated: "${path}"`);
@@ -27,7 +28,8 @@ module.exports = {
             this.logger.info("Backuping directories");
             let path = await ctx.call("backup.setupPath", {
                 app: ctx.params.app,
-                type: "directories"
+                name: "directories",
+                config: ctx.params.config
             });
 
             await tar.create({
@@ -42,17 +44,49 @@ module.exports = {
 
         async database(ctx) {
             this.logger.info("Backuping databases");
-            // TODO
+            let path = null;
+            let databaseBackups = new Array;
+            ctx.params.app.databases.forEach( async database => {
+                this.logger.info(`[${database.driver} - ${database.database}]  Started`);
+                path = await ctx.call("backup.setupPath", {
+                    app: ctx.params.app,
+                    name: `db_${database.driver}_${database.database}`,
+                    extension: 'sql',
+                    config: ctx.params.config
+                });
+                execute(`PGPASSWORD="${database.password}" pg_dump -U ${database.username} -h ${database.host} -p ${database.port} -d ${database.database} > ${path}`,).then(async () => {
+                    this.logger.info(`[${database.driver} - ${database.database}] Dump finished, compressing...`);
+                    let tarPath = await ctx.call("backup.setupPath", {
+                        app: ctx.params.app,
+                        name: `db_${database.driver}_${database.database}`,
+                        config: ctx.params.config
+                    });
+                    await tar.create({
+                        gzip: true,
+                        file: tarPath
+                    }, path).then( tar => {
+                        this.logger.info(`[${database.driver} - ${database.database}] Completed`);
+                    });
+                    fs.unlinkSync(path);
+                    databaseBackups.push(tarPath);
+                });
+            });
+            return databaseBackups;
         },
 
         async process(ctx) {
+            let backupFiles = new Array;
             let directoryBackupPath = await ctx.call("backup.directory", {
-                app: ctx.params.app
+                app: ctx.params.app,
+                config: ctx.params.config
             });
+            backupFiles.push(directoryBackupPath);
 
-            /*let databaseBackupPath = await ctx.call("backup.database", {
-                app: ctx.params.app
-            });*/
+            let databaseBackupPath = await ctx.call("backup.database", {
+                app: ctx.params.app,
+                config: ctx.params.config
+            });
+            backupFiles.push(...databaseBackupPath);
 
             this.logger.info("Merging backups...");
             let path = await ctx.call("backup.setupPath", {
@@ -63,9 +97,8 @@ module.exports = {
             await tar.create({
                 gzip: true,
                 file: path
-            }, [ directoryBackupPath /*, databaseBackupPath*/ ]).then( async tar => {
-                fs.unlinkSync(directoryBackupPath);
-                //fs.unlinkSync(databaseBackupPath);
+            }, backupFiles).then( async tar => {
+                fs.unlinkSync(backupFiles);
                 this.logger.info(`Merge completed. Full backup available at: ${path}`);
             });
         }
@@ -81,7 +114,8 @@ module.exports = {
                 config.apps.forEach(async app => {
                     this.logger.info(`[${app.name}] Starting`);
                     await ctx.call("backup.process", {
-                        app: app
+                        app: app,
+                        config: config
                     });
                     this.logger.info(`[${app.name}] Completed`);
                 });

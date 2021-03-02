@@ -20,7 +20,9 @@
     "moleculer-repl": "^0.6.4"
   },
   "dependencies": {
+    "@getvim/execute": "^1.0.0",
     "dateformat": "^4.5.1",
+    "dotenv": "^8.2.0",
     "moleculer": "^0.14.10",
     "nats": "^1.4.12",
     "tar": "^6.1.0"
