@@ -1,8 +1,9 @@
 "use strict";
 
 const fs = require("fs");
-const dateformat = require("dateformat");
 const tar = require("tar");
+const nodePath = require('path');
+const dateformat = require("dateformat");
 const {execute} = require('@getvim/execute');
 
 module.exports = {
@@ -46,7 +47,8 @@ module.exports = {
             this.logger.info("Backuping databases");
             let path = null;
             let databaseBackups = new Array;
-            ctx.params.app.databases.forEach( async database => {
+
+            const promises = ctx.params.app.databases.map(async (database) => {
                 this.logger.info(`[${database.driver} - ${database.database}]  Started`);
                 path = await ctx.call("backup.setupPath", {
                     app: ctx.params.app,
@@ -54,23 +56,28 @@ module.exports = {
                     extension: 'sql',
                     config: ctx.params.config
                 });
-                execute(`PGPASSWORD="${database.password}" pg_dump -U ${database.username} -h ${database.host} -p ${database.port} -d ${database.database} > ${path}`,).then(async () => {
+                await execute(`PGPASSWORD="${database.password}" pg_dump -U ${database.username} -h ${database.host} -p ${database.port} -d ${database.database} > ${path}`,).then(async () => {
                     this.logger.info(`[${database.driver} - ${database.database}] Dump finished, compressing...`);
                     let tarPath = await ctx.call("backup.setupPath", {
                         app: ctx.params.app,
                         name: `db_${database.driver}_${database.database}`,
                         config: ctx.params.config
                     });
+
                     await tar.create({
                         gzip: true,
-                        file: tarPath
-                    }, path).then( tar => {
+                        file: tarPath,
+                        cwd: nodePath.dirname(path)
+                    }, [nodePath.basename(path)]).then( tar => {
+                        fs.unlinkSync(path);
+                        databaseBackups.push(tarPath);
                         this.logger.info(`[${database.driver} - ${database.database}] Completed`);
                     });
-                    fs.unlinkSync(path);
-                    databaseBackups.push(tarPath);
                 });
             });
+
+            await Promise.all(promises);
+
             return databaseBackups;
         },
 
@@ -91,14 +98,18 @@ module.exports = {
             this.logger.info("Merging backups...");
             let path = await ctx.call("backup.setupPath", {
                 app: ctx.params.app,
-                type: "all"
+                name: "all",
+                config: ctx.params.config
             });
 
             await tar.create({
                 gzip: true,
-                file: path
-            }, backupFiles).then( async tar => {
-                fs.unlinkSync(backupFiles);
+                file: path,
+                cwd: nodePath.dirname(backupFiles[0])
+            }, backupFiles.map( backup => { return nodePath.basename(backup); })).then( async tar => {
+                backupFiles.forEach( backup => {
+                    fs.unlinkSync(backup);
+                })
                 this.logger.info(`Merge completed. Full backup available at: ${path}`);
             });
         }
