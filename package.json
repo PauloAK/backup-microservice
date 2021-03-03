@@ -24,6 +24,7 @@
     "dateformat": "^4.5.1",
     "dotenv": "^8.2.0",
     "moleculer": "^0.14.10",
+    "moleculer-cron": "0.0.2",
     "nats": "^1.4.12",
     "tar": "^6.1.0"
   },
