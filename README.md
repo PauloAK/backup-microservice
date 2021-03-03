@@ -25,4 +25,4 @@ Run the service<br>
 `npm run dev`<br><br>
 In produciton, you can use `pm2` with the command<br>
 `pm2 start npm --name "backup" -- run "start"`<br>
-(`pm list` to see the running services and `pm logs` to see applications logs)
+(`pm2 list` to see the running services and `pm2 logs` to see applications logs)
