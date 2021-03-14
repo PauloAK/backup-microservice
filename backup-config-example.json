@@ -17,5 +17,10 @@
                 }
             ]
         }
-    ]
+    ],
+    "drive":  {
+        "credentials": "./credentials.json",
+        "token": "./token.json",
+        "folder_id": null
+    }
 }
