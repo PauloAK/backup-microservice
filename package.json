@@ -23,6 +23,8 @@
     "@getvim/execute": "^1.0.0",
     "dateformat": "^4.5.1",
     "dotenv": "^8.2.0",
+    "googleapis": "^39.2.0",
+    "mime": "^2.5.2",
     "moleculer": "^0.14.10",
     "moleculer-cron": "0.0.2",
     "nats": "^1.4.12",

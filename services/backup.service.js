@@ -130,6 +130,7 @@ module.exports = {
                     });
                     this.logger.info(`[${app.name}] Completed`);
                 });
+                ctx.emit("init.upload");
             }
         }
     }
