@@ -33,7 +33,7 @@ module.exports = {
                     console.log(`${files.length} file(s) found in "${folder}" folder`);
                     let current = 0;
                     files.forEach( async file => {
-                        getFolderID(folder, (folderID) => {
+                        await getFolderID(folder, async (folderID) => {
                             current++;
                             console.log(`File ${current} of ${files.length}`);
                             let filePath = config.backup_folder + path.sep + folder + path.sep + file;
@@ -46,7 +46,7 @@ module.exports = {
                                 body: fs.createReadStream(filePath)
                             };
 
-                            drive.files.create({
+                            await drive.files.create({
                                 resource: fileMetadata,
                                 media: media,
                                 fields: 'id'
@@ -62,15 +62,13 @@ module.exports = {
                     });
                 })
 
-                console.log("Process completed");
-
-                function createFolder(name, callback) {
+                async function createFolder(name, callback) {
                     var fileMetadata = {
                         'name': name,
                         'mimeType': 'application/vnd.google-apps.folder',
                         parents: [config.drive.folder_id]
                     };
-                    return drive.files.create({
+                    await drive.files.create({
                         resource: fileMetadata,
                         fields: 'id'
                     }, function (err, folder) {
@@ -83,15 +81,16 @@ module.exports = {
                     });
                 }
 
-                function getFolderID(name, callback) {
-                    return drive.files.list({
+                async function getFolderID(name, callback) {
+                    drive.files.list({
                         q: `mimeType='application/vnd.google-apps.folder' and name='${name}' and '${config.drive.folder_id}' in parents and trashed = false`,
                         fields: 'files(id,parents,name,mimeType)',
                         spaces: 'drive'
-                    }, function (err, res) {
+                    }, async function (err, res) {
                         if (!err) {
+                            console.log(res.data.files[0].id);
                             if (!res.data.files.length) {
-                                createFolder(name, callback);
+                                await createFolder(name, callback);
                             } else {
                                 callback(res.data.files[0].id);
                             }
