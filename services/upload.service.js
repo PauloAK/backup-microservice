@@ -13,40 +13,93 @@ module.exports = {
     name: "upload",
 
     actions: {
-        uploadFileToDrive(ctx) {
+        async uploadFileToDrive(ctx) {
             this.setup(uploadFile);
         
-            function uploadFile(auth) {
+            async function uploadFile(auth) {
                 const drive = google.drive({ version: 'v3', auth });
-                let files = fs.readdirSync(config.backup_folder);
+                let folders = fs.readdirSync(config.backup_folder);
 
-                console.log(`${files.length} file(s) found...`);
-                let current = 1;
-                files.forEach( file => {
-                    console.log(`File ${current} of ${files.length}`);
-                    let filePath = config.backup_folder + path.sep + file;
-                    let fileMetadata = {
-                        name: file,
+                folders = folders.filter(function (folder) {
+                    return fs.statSync(config.backup_folder + path.sep + folder).isDirectory();
+                });
+
+                console.log(`${folders.length} folder(s) found...`);
+                folders.forEach( async folder => {
+                    console.log(`Folder: ${folder}`);
+                    let files = fs.readdirSync(config.backup_folder + path.sep + folder).filter(function (file) {
+                        return fs.statSync(config.backup_folder + path.sep + folder + path.sep + file).isFile();
+                    });                    
+                    console.log(`${files.length} file(s) found in "${folder}" folder`);
+                    let current = 0;
+                    files.forEach( async file => {
+                        getFolderID(folder, (folderID) => {
+                            current++;
+                            console.log(`File ${current} of ${files.length}`);
+                            let filePath = config.backup_folder + path.sep + folder + path.sep + file;
+                            let fileMetadata = {
+                                name: file,
+                                parents: [folderID]
+                            };
+                            let media = {
+                                mimeType: mime.getType(filePath),
+                                body: fs.createReadStream(filePath)
+                            };
+
+                            drive.files.create({
+                                resource: fileMetadata,
+                                media: media,
+                                fields: 'id'
+                            }, function (err, file) {
+                                if (err) {
+                                    console.log('Error uploading file.')
+                                } else {
+                                    fs.unlinkSync(filePath);
+                                    console.log("Upload Completed");
+                                }
+                            }); 
+                        });
+                    });
+                })
+
+                console.log("Process completed");
+
+                function createFolder(name, callback) {
+                    var fileMetadata = {
+                        'name': name,
+                        'mimeType': 'application/vnd.google-apps.folder',
                         parents: [config.drive.folder_id]
                     };
-                    let media = {
-                      mimeType: mime.getType(filePath),
-                      body: fs.createReadStream(filePath)
-                    };
-
-                    drive.files.create({
+                    return drive.files.create({
                         resource: fileMetadata,
-                        media: media,
                         fields: 'id'
-                    }, function (err, file) {
+                    }, function (err, folder) {
                         if (err) {
-                            console.error(err);
-                            console.log('Make sure you shared your drive folder with service email/user.')
+                            console.error("Error creating folder");
                         } else {
-                            console.log("Upload Completed");
+                            console.log(`Folder "${name}" created, ID: ${folder.data.id}`, folder.data.id);
+                            callback(folder.data.id);
                         }
                     });
-                });
+                }
+
+                function getFolderID(name, callback) {
+                    return drive.files.list({
+                        q: `mimeType='application/vnd.google-apps.folder' and name='${name}' and '${config.drive.folder_id}' in parents and trashed = false`,
+                        fields: 'files(id,parents,name,mimeType)',
+                        spaces: 'drive'
+                    }, function (err, res) {
+                        if (!err) {
+                            if (!res.data.files.length) {
+                                createFolder(name, callback);
+                            } else {
+                                callback(res.data.files[0].id);
+                            }
+                        } else {
+                            console.log("Error getting folders from drive");
+                        }
+                    });
+                }
             }
         }
     },
