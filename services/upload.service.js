@@ -14,9 +14,52 @@ module.exports = {
 
     actions: {
         uploadFileToDrive(ctx) {
+            this.setup(uploadFile);
+        
+            function uploadFile(auth) {
+                const drive = google.drive({ version: 'v3', auth });
+                let files = fs.readdirSync(config.backup_folder);
+
+                console.log(`${files.length} file(s) found...`);
+                let current = 1;
+                files.forEach( file => {
+                    console.log(`File ${current} of ${files.length}`);
+                    let filePath = config.backup_folder + path.sep + file;
+                    let fileMetadata = {
+                        name: file,
+                        parents: [config.drive.folder_id]
+                    };
+                    let media = {
+                      mimeType: mime.getType(filePath),
+                      body: fs.createReadStream(filePath)
+                    };
+
+                    drive.files.create({
+                        resource: fileMetadata,
+                        media: media,
+                        fields: 'id'
+                    }, function (err, file) {
+                        if (err) {
+                            console.error(err);
+                            console.log('Make sure you shared your drive folder with service email/user.')
+                        } else {
+                            console.log("Upload Completed");
+                        }
+                    });
+                });
+            }
+        }
+    },
+
+    methods: {
+        // Send an email to recipients
+        setup(callback) {
+            if (!config.drive.enabled)
+                return;
+
             const SCOPES = ['https://www.googleapis.com/auth/drive'];
 
-            authorize(CREDENTIALS, uploadFile);
+            authorize(CREDENTIALS, callback);
 
             /**
              * Create an OAuth2 client with the given credentials, and then execute the
@@ -56,56 +99,34 @@ module.exports = {
                 rl.question('Enter the code from that page here: ', (code) => {
                     rl.close();
                     oAuth2Client.getToken(code, (err, token) => {
-                    if (err) return console.error('Error retrieving access token', err);
-                    oAuth2Client.setCredentials(token);
-                    // Store the token to disk for later program executions
-                    fs.writeFile(TOKEN_PATH, JSON.stringify(token), (err) => {
-                        if (err) return console.error(err);
-                        console.log('Token stored to', TOKEN_PATH);
-                    });
-                    callback(oAuth2Client);
-                    });
-                });
-            }
-        
-            function uploadFile(auth) {
-                const drive = google.drive({ version: 'v3', auth });
-                let files = fs.readdirSync(config.backup_folder);
-
-                console.log(`${files.length} file(s) found...`);
-                let current = 1;
-                files.forEach( file => {
-                    console.log(`File ${current} of ${files.length}`);
-                    let filePath = config.backup_folder + path.sep + file;
-                    let fileMetadata = {
-                        name: file,
-                        parents: [config.drive.folder_id]
-                    };
-                    let media = {
-                      mimeType: mime.getType(filePath),
-                      body: fs.createReadStream(filePath)
-                    };
-
-                    drive.files.create({
-                        resource: fileMetadata,
-                        media: media,
-                        fields: 'id'
-                    }, function (err, file) {
-                        if (err) {
-                            console.error(err);
-                            console.log('Make sure you shared your drive folder with service email/user.')
-                        } else {
-                            console.log("Upload Completed");
-                        }
+                        if (err) return console.error('Error retrieving access token', err);
+                        oAuth2Client.setCredentials(token);
+                        // Store the token to disk for later program executions
+                        fs.writeFile(TOKEN_PATH, JSON.stringify(token), (err) => {
+                            if (err) return console.error(err);
+                            console.log('Token stored to', TOKEN_PATH);
+                        });
+                        callback(oAuth2Client);
                     });
                 });
             }
         }
     },
 
+    started() {
+        console.log("Upload service started");
+        this.setup( () => {
+            console.log("Google drive ready!");
+        });
+    },
+
     events: {
         "init.upload": {
             async handler(ctx) {
+                if (!config.drive.enabled){
+                    console.log("Google Drive disabled");
+                    return;
+                }
                 this.logger.info("Upload proccess started");
                 ctx.call("upload.uploadFileToDrive");
             }
