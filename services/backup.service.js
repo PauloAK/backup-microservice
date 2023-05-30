@@ -10,7 +10,7 @@ module.exports = {
     name: "backup",
 
     actions: {
-        async setupPath(ctx) {
+        setupPath(ctx) {
             let fileExtension = ctx.params.extension ? ctx.params.extension : "tar.gz";
             let timeFormat = dateformat(new Date, "yyyymmdd-HHMMss");
 
@@ -27,29 +27,46 @@ module.exports = {
 
         async directory(ctx) {
             this.logger.info("Backuping directories");
-            let path = await ctx.call("backup.setupPath", {
-                app: ctx.params.app,
-                name: "directories",
-                config: ctx.params.config
-            });
 
-            await tar.create({
-                gzip: true,
-                file: path
-            }, ctx.params.app.directories).then( tar => {
-                this.logger.info("Directories backup completed.");
-            });
+			let paths = [];
 
-            return path;
+			for await (const dir of ctx.params.app.directories) {
+				this.logger.info("Working on: " + dir);
+
+				let path = await ctx.call("backup.setupPath", {
+					app: ctx.params.app,
+					name: "directories",
+					config: ctx.params.config
+				});
+
+				this.logger.info("Generating tarfile for " + dir);
+
+				paths.push(path);
+
+				await tar.create({
+					gzip: true,
+					file: path,
+					cwd: dir,
+					filter: (path) => path.indexOf("vendor") === -1 && path.indexOf("node_modules") === -1 // Ignores composer vendors and node_modules folders
+				}, [dir]);
+
+				this.logger.info("Directory backup completed for " + dir);
+			}
+
+			this.logger.info("Directories backups completed");
+
+            return paths;
         },
 
         async database(ctx) {
             this.logger.info("Backuping databases");
+
             let path = null;
             let databaseBackups = new Array;
 
             const promises = ctx.params.app.databases.map(async (database) => {
                 this.logger.info(`[${database.driver} - ${database.database}]  Started`);
+
                 path = await ctx.call("backup.setupPath", {
                     app: ctx.params.app,
                     name: `db_${database.driver}_${database.database}`,
@@ -83,17 +100,17 @@ module.exports = {
 
         async process(ctx) {
             let backupFiles = new Array;
-            let directoryBackupPath = await ctx.call("backup.directory", {
+            let directoryBackupPaths = await ctx.call("backup.directory", {
                 app: ctx.params.app,
                 config: ctx.params.config
             });
-            backupFiles.push(directoryBackupPath);
+            backupFiles.push(...directoryBackupPaths);
 
-            let databaseBackupPath = await ctx.call("backup.database", {
+            let databaseBackupPaths = await ctx.call("backup.database", {
                 app: ctx.params.app,
                 config: ctx.params.config
             });
-            backupFiles.push(...databaseBackupPath);
+            backupFiles.push(...databaseBackupPaths);
 
             this.logger.info("Merging backups...");
             let path = await ctx.call("backup.setupPath", {
