@@ -32,72 +32,61 @@ module.exports = {
                     });
                     console.log(`${files.length} file(s) found in "${folder}" folder`);
                     let current = 0;
-                    files.forEach( async file => {
-                        await getFolderID(folder, async (folderID) => {
-                            current++;
-                            console.log(`File ${current} of ${files.length}`);
-                            let filePath = config.backup_folder + path.sep + folder + path.sep + file;
-                            let fileMetadata = {
-                                name: file,
-                                parents: [folderID]
-                            };
-                            let media = {
-                                mimeType: mime.getType(filePath),
-                                body: fs.createReadStream(filePath)
-                            };
+					let folderID = await getFolderID(folder);
 
-                            await drive.files.create({
-                                resource: fileMetadata,
-                                media: media,
-                                fields: 'id'
-                            }, function (err, file) {
-                                if (err) {
-                                    console.log('Error uploading file.')
-                                } else {
-                                    fs.unlinkSync(filePath);
-                                    console.log("Upload Completed");
-                                }
-                            });
-                        });
-                    });
+					for await (const file of files) {
+						current++;
+
+						let filePath = config.backup_folder + path.sep + folder + path.sep + file;
+						console.log(`Uploading file ${current} of ${files.length}`, filePath);
+
+						let fileMetadata = {
+							name: file,
+							parents: [folderID]
+						};
+						let media = {
+							mimeType: mime.getType(filePath),
+							body: fs.createReadStream(filePath)
+						};
+
+						await drive.files.create({
+							resource: fileMetadata,
+							media: media,
+							fields: 'id'
+						});
+
+						console.log("Upload done, removing old file", filePath);
+						fs.unlinkSync(filePath);
+                    }
+					console.log("Uploads done! Finished upload process.");
                 })
 
-                async function createFolder(name, callback) {
+                async function createFolder(name) {
                     var fileMetadata = {
                         'name': name,
                         'mimeType': 'application/vnd.google-apps.folder',
                         parents: [config.drive.folder_id]
                     };
-                    await drive.files.create({
+                    let res = await drive.files.create({
                         resource: fileMetadata,
                         fields: 'id'
-                    }, function (err, folder) {
-                        if (err) {
-                            console.error("Error creating folder");
-                        } else {
-                            console.log(`Folder "${name}" created, ID: ${folder.data.id}`, folder.data.id);
-                            callback(folder.data.id);
-                        }
                     });
+
+					return res.data.id;
                 }
 
-                async function getFolderID(name, callback) {
-                    drive.files.list({
+                async function getFolderID(name) {
+                    let list = await drive.files.list({
                         q: `mimeType='application/vnd.google-apps.folder' and name='${name}' and '${config.drive.folder_id}' in parents and trashed = false`,
                         fields: 'files(id,parents,name,mimeType)',
                         spaces: 'drive'
-                    }, async function (err, res) {
-                        if (!err) {
-                            console.log(res.data.files[0].id);
-                            if (!res.data.files.length) {
-                                await createFolder(name, callback);
-                            } else {
-                                callback(res.data.files[0].id);
-                            }
-                        } else {
-                            console.log("Error getting folders from drive");
-                        }
                     });
+
+					if (!list.data.files.length) {
+						return await createFolder(name);
+					} else {
+						return list.data.files[0].id;
+					}
                 }
             }
         }
