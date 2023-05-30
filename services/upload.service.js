@@ -15,7 +15,7 @@ module.exports = {
     actions: {
         async uploadFileToDrive(ctx) {
             this.setup(uploadFile);
-        
+
             async function uploadFile(auth) {
                 const drive = google.drive({ version: 'v3', auth });
                 let folders = fs.readdirSync(config.backup_folder);
@@ -29,7 +29,7 @@ module.exports = {
                     console.log(`Folder: ${folder}`);
                     let files = fs.readdirSync(config.backup_folder + path.sep + folder).filter(function (file) {
                         return fs.statSync(config.backup_folder + path.sep + folder + path.sep + file).isFile();
-                    });                    
+                    });
                     console.log(`${files.length} file(s) found in "${folder}" folder`);
                     let current = 0;
                     files.forEach( async file => {
@@ -57,7 +57,7 @@ module.exports = {
                                     fs.unlinkSync(filePath);
                                     console.log("Upload Completed");
                                 }
-                            }); 
+                            });
                         });
                     });
                 })

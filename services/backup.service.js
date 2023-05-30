@@ -122,15 +122,22 @@ module.exports = {
                 let config = JSON.parse(fs.readFileSync('./backup-config.json'));
                 this.logger.info("Config loaded...");
 
-                config.apps.forEach(async app => {
+				let promises = [];
+
+                config.apps.forEach(app => {
                     this.logger.info(`[${app.name}] Starting`);
-                    await ctx.call("backup.process", {
-                        app: app,
-                        config: config
-                    });
-                    this.logger.info(`[${app.name}] Completed`);
+					promises.push(
+						ctx.call("backup.process", {
+							app: app,
+							config: config
+						})
+					);
                 });
-                ctx.emit("init.upload");
+
+				Promise.all(promises).then(() => {
+					this.logger.info(`All proccesses completed`);
+					ctx.emit("init.upload");
+				});
             }
         }
     }
