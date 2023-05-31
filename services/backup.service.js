@@ -43,11 +43,21 @@ module.exports = {
 
 				paths.push(path);
 
-				await tar.create({
+				tar.create({
 					gzip: true,
 					file: path,
 					cwd: dir,
-					filter: (path) => path.indexOf("vendor") === -1 && path.indexOf("node_modules") === -1 // Ignores composer vendors and node_modules folders
+					sync: true,
+					filter: (path) => {
+						let shouldAdd = true;
+						(ctx.params.app.ignore_paths_with || []).forEach(ignoredPath => {
+							if (path.indexOf(ignoredPath) !== -1) {
+								shouldAdd = false;
+							}
+						});
+
+						return shouldAdd;
+					}
 				}, [dir]);
 
 				this.logger.info("Directory backup completed for " + dir);

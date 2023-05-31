@@ -6,6 +6,8 @@
             "directories": [
                 "/var/www/example"
             ],
+			"ignore_paths_with": ["vendor", "node_modules"],
+			"include_files": [".env"],
             "databases": [
                 {
                     "driver": "postgres",
